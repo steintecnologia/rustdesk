@@ -1,3 +1,7 @@
+pub const SERVER_ID: &str = "hfa09dkzz12.sn.mynetname.net";
+pub const API_SERVER: &str = "https://hfa09dkzz12.sn.mynetname.net";
+pub const KEY: &str = "NeKeYGwDUN9fkVhYjISJwOMmwsBKzRnJ5P1yXUCeMKA=";
+
 use super::{cstr_to_string, str_to_cstr_ret};
 use hbb_common::{allow_err, bail, config::Config as HbbConfig, lazy_static, log, ResultType};
 use serde_derive::{Deserialize, Serialize};
