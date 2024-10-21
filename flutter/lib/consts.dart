@@ -32,6 +32,7 @@ const String kPeerPlatformWindows = "Windows";
 const String kPeerPlatformLinux = "Linux";
 const String kPeerPlatformMacOS = "Mac OS";
 const String kPeerPlatformAndroid = "Android";
+const String kPeerPlatformWebDesktop = "WebDesktop";
 
 const double kScrollbarThickness = 12.0;
 
@@ -88,6 +89,7 @@ const String kOptionAllowAutoDisconnect = "allow-auto-disconnect";
 const String kOptionAutoDisconnectTimeout = "auto-disconnect-timeout";
 const String kOptionEnableHwcodec = "enable-hwcodec";
 const String kOptionAllowAutoRecordIncoming = "allow-auto-record-incoming";
+const String kOptionAllowAutoRecordOutgoing = "allow-auto-record-outgoing";
 const String kOptionVideoSaveDirectory = "video-save-directory";
 const String kOptionAccessMode = "access-mode";
 const String kOptionEnableKeyboard = "enable-keyboard";
@@ -200,7 +202,7 @@ const double kMinFps = 5;
 const double kDefaultFps = 30;
 const double kMaxFps = 120;
 
-const double kMinQuality = 10;
+const double kMinQuality = 5;
 const double kDefaultQuality = 50;
 const double kMaxQuality = 100;
 const double kMaxMoreQuality = 2000;
@@ -241,9 +243,9 @@ const kDefaultScrollDuration = Duration(milliseconds: 50);
 const kDefaultMouseWheelThrottleDuration = Duration(milliseconds: 50);
 const kFullScreenEdgeSize = 0.0;
 const kMaximizeEdgeSize = 0.0;
-// Do not use kWindowEdgeSize directly. Use `windowEdgeSize` in `common.dart` instead.
-final kWindowEdgeSize = isWindows ? 1.0 : 5.0;
-final kWindowBorderWidth = 1.0;
+// Do not use kWindowResizeEdgeSize directly. Use `windowResizeEdgeSize` in `common.dart` instead.
+const kWindowResizeEdgeSize = 5.0;
+const kWindowBorderWidth = 1.0;
 const kDesktopMenuPadding = EdgeInsets.only(left: 12.0, right: 3.0);
 const kFrameBorderRadius = 12.0;
 const kFrameClipRRectBorderRadius = 12.0;
@@ -569,3 +571,5 @@ enum WindowsTarget {
 extension WindowsTargetExt on int {
   WindowsTarget get windowsVersion => getWindowsTarget(this);
 }
+
+const kCheckSoftwareUpdateFinish = 'check_software_update_finish';

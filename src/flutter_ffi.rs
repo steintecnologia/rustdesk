@@ -1,6 +1,6 @@
 use crate::{
     client::file_trait::FileManager,
-    common::{is_keyboard_mode_supported, make_fd_to_json},
+    common::make_fd_to_json,
     flutter::{
         self, session_add, session_add_existed, session_start_, sessions, try_sync_peer_option,
     },
@@ -19,13 +19,11 @@ use hbb_common::allow_err;
 use hbb_common::{
     config::{self, LocalConfig, PeerConfig, PeerInfoSerde},
     fs, lazy_static, log,
-    message_proto::KeyboardMode,
     rendezvous_proto::ConnType,
     ResultType,
 };
 use std::{
     collections::HashMap,
-    str::FromStr,
     sync::{
         atomic::{AtomicI32, Ordering},
         Arc,
@@ -63,7 +61,6 @@ fn initialize(app_dir: &str, custom_client_config: &str) {
         scrap::mediacodec::check_mediacodec();
         crate::common::test_rendezvous_server();
         crate::common::test_nat_type();
-        crate::common::check_software_update();
     }
     #[cfg(target_os = "ios")]
     {
@@ -244,21 +241,17 @@ pub fn session_is_multi_ui_session(session_id: SessionID) -> SyncReturn<bool> {
     }
 }
 
-pub fn session_record_screen(
-    session_id: SessionID,
-    start: bool,
-    display: usize,
-    width: usize,
-    height: usize,
-) {
+pub fn session_record_screen(session_id: SessionID, start: bool) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
-        session.record_screen(start, display as _, width as _, height as _);
+        session.record_screen(start);
     }
 }
 
-pub fn session_record_status(session_id: SessionID, status: bool) {
+pub fn session_get_is_recording(session_id: SessionID) -> SyncReturn<bool> {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
-        session.record_status(status);
+        SyncReturn(session.is_recording())
+    } else {
+        SyncReturn(false)
     }
 }
 
@@ -447,15 +440,7 @@ pub fn session_get_custom_image_quality(session_id: SessionID) -> Option<Vec<i32
 
 pub fn session_is_keyboard_mode_supported(session_id: SessionID, mode: String) -> SyncReturn<bool> {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
-        if let Ok(mode) = KeyboardMode::from_str(&mode[..]) {
-            SyncReturn(is_keyboard_mode_supported(
-                &mode,
-                session.get_peer_version(),
-                &session.peer_platform(),
-            ))
-        } else {
-            SyncReturn(false)
-        }
+        SyncReturn(session.is_keyboard_mode_supported(mode))
     } else {
         SyncReturn(false)
     }
@@ -491,6 +476,25 @@ pub fn session_switch_display(is_desktop: bool, session_id: SessionID, value: Ve
 
 pub fn session_handle_flutter_key_event(
     session_id: SessionID,
+    character: String,
+    usb_hid: i32,
+    lock_modes: i32,
+    down_or_up: bool,
+) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        let keyboard_mode = session.get_keyboard_mode();
+        session.handle_flutter_key_event(
+            &keyboard_mode,
+            &character,
+            usb_hid,
+            lock_modes,
+            down_or_up,
+        );
+    }
+}
+
+pub fn session_handle_flutter_raw_key_event(
+    session_id: SessionID,
     name: String,
     platform_code: i32,
     position_code: i32,
@@ -499,7 +503,7 @@ pub fn session_handle_flutter_key_event(
 ) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         let keyboard_mode = session.get_keyboard_mode();
-        session.handle_flutter_key_event(
+        session.handle_flutter_raw_key_event(
             &keyboard_mode,
             &name,
             platform_code,
@@ -594,6 +598,7 @@ pub fn session_send_files(
     file_num: i32,
     include_hidden: bool,
     is_remote: bool,
+    _is_dir: bool,
 ) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.send_files(act_id, path, to, file_num, include_hidden, is_remote);
@@ -625,7 +630,7 @@ pub fn session_remove_file(
     }
 }
 
-pub fn session_read_dir_recursive(
+pub fn session_read_dir_to_remove_recursive(
     session_id: SessionID,
     act_id: i32,
     path: String,
@@ -707,6 +712,18 @@ pub fn session_add_job(
 pub fn session_resume_job(session_id: SessionID, act_id: i32, is_remote: bool) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.resume_job(act_id, is_remote);
+    }
+}
+
+pub fn session_rename_file(
+    session_id: SessionID,
+    act_id: i32,
+    path: String,
+    new_name: String,
+    is_remote: bool,
+) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.rename_file(act_id, path, new_name, is_remote);
     }
 }
 
@@ -1355,11 +1372,10 @@ pub fn main_get_last_remote_id() -> String {
     LocalConfig::get_remote_id()
 }
 
-pub fn main_get_software_update_url() -> String {
+pub fn main_get_software_update_url() {
     if get_local_option("enable-check-update".to_string()) != "N" {
         crate::common::check_software_update();
     }
-    crate::common::SOFTWARE_UPDATE_URL.lock().unwrap().clone()
 }
 
 pub fn main_get_home_dir() -> String {
@@ -1891,7 +1907,7 @@ pub fn main_is_login_wayland() -> SyncReturn<bool> {
     SyncReturn(is_login_wayland())
 }
 
-pub fn main_hide_docker() -> SyncReturn<bool> {
+pub fn main_hide_dock() -> SyncReturn<bool> {
     #[cfg(target_os = "macos")]
     crate::platform::macos::hide_dock();
     SyncReturn(true)
@@ -2259,6 +2275,10 @@ pub fn main_remove_trusted_devices(json: String) {
 
 pub fn main_clear_trusted_devices() {
     clear_trusted_devices()
+}
+
+pub fn main_max_encrypt_len() -> SyncReturn<usize> {
+    SyncReturn(max_encrypt_len())
 }
 
 pub fn session_request_new_display_init_msgs(session_id: SessionID, display: usize) {
